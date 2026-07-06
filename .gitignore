@@ -1,1 +1,31 @@
 setup_docs.sh
+venv
+cp.md
+## Fabric samples (large, environment specific)
+fabric-samples/
+
+# Build artifacts
+*.tar.gz
+*.block
+*.pb
+*.log
+channel-artifacts/
+organizations/
+
+# Go
+vendor/
+# go.sum is actually good to track, so don't ignore it.
+
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# IDE
+.vscode/
+.idea/
+
+# OS junk
+.DS_Store
+Thumbs.db
