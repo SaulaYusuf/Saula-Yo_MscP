@@ -5,9 +5,8 @@
 **Title:** Enhancing Supply Chain Traceability and Transparency via Master‑Slave Multi‑Chain Architectures and Digital Twins: An Empirical Performance Evaluation.
 
 **Student:** Saula Yusuf Owolabi  
-<!-- **Supervisor:** [Your Supervisor’s Name]   -->
-**Institution:** Ulster University 
-**Date:** July 2026 (Last Updated)
+**Institution:** Ulster University  
+**Date:** July 2026 (Last Updated: 2026‑07‑12)
 
 ---
 
@@ -16,8 +15,8 @@
 ```
 .
 ├── chaincode/                 # Smart contract source code (Go)
-│   └── slave-twin/            # IoT/Digital Twin chaincode
-│       ├── main.go            # Threshold engine & twin logic
+│   └── slave-twin/            # IoT/Digital Twin chaincode (extended for logistics)
+│       ├── main.go            # Threshold engine + logistics handovers
 │       ├── go.mod
 │       └── go.sum
 ├── data/
@@ -28,11 +27,13 @@
 ├── docu/                      # Full project documentation (milestone notes, results)
 │   ├── _global-notes/         # Environment setup, tech stack justification
 │   ├── m1-infrastructure/     # Network provisioning & pivot rationale
-│   ├── m2-data-ingestion/     # Python ingestion engine design (in progress)
+│   ├── m2-data-ingestion/     # Python ingestion engine (as‑built)
 │   ├── m3-slave-chain/        # Slave chaincode development & deployment
-│   ├── m4-master-chain/       # Master logistics chaincode (planned)
+│   ├── m4-master-chain/       # Master logistics chaincode (in progress)
 │   ├── m5-evaluation/         # Performance metrics & stress tests (planned)
 │   └── m6-defense-prep/       # Final report, slides, video walkthrough (planned)
+├── gateway-api/               # Go REST API bridge (HTTP -> Fabric)
+│   └── main.go                # Connects to Fabric, exposes /api/sensor and /api/logistics
 ├── README.md                  # This file
 └── milestones.md              # Detailed milestone map
 ```
@@ -51,23 +52,26 @@
 - **State Database:** levelDB
 - **Consensus:** Raft (5 orderer nodes)
 - **Single Channel:** `mychannel`
-- **Two Chaincodes:**
-  - **Slave (IoT) Chaincode:** `slave-twin` – ingests environmental sensor telemetry, evaluates temperature thresholds, updates Digital Twin status (`NORMAL` / `SPOILED`).
-  - **Master (Logistics) Chaincode:** `master-logistics` – (planned) handles ownership handovers, port arrivals, and cryptographic anchoring of final milestones.
+- **Two Chaincode Contracts (in one package):**
+  - **Slave (IoT) Contract:** `RecordTelemetry` – ingests environmental sensor telemetry, evaluates temperature thresholds, updates Digital Twin status (`NORMAL` / `SPOILED`).
+  - **Master (Logistics) Contract:** `RecordHandover` – handles ownership handovers, port arrivals, and cryptographic anchoring of final milestones (to be deployed).
 
-The Python ingestion engine (in development) will route:
-- Sensor CSV rows → `slave-twin.RecordTelemetry`
-- Logistics CSV rows → `master-logistics.RecordHandover`
+### Data Ingestion Pipeline (Two‑Tier)
+
+1. **Python Parser** – reads Kaggle CSV datasets, transforms rows to JSON, and sends HTTP POST requests to the Go bridge.
+2. **Go API Bridge** – uses the official Fabric Gateway SDK to submit transactions to the chaincode.
+
+This pattern avoids the unmaintained Python Fabric SDK and is industry‑standard for edge‑to‑blockchain communication.
 
 ---
 
 ## Datasets & Mapping
 
-| Dataset | Source | Target Chaincode | Purpose |
-|---------|--------|------------------|---------|
-| **Smart Logistics Supply Chain** | [`data/raw/smart_logistics_dataset.csv`](data/raw/smart_logistics_dataset.csv) | `master-logistics` | Macro‑movement tracking (origin/destination ports, current status) |
-| **Cold‑Chain Silent Failure** | [`data/raw/shipment-sensor-dataset.csv`](data/raw/shipment-sensor-dataset.csv) | `slave-twin` | High‑frequency IoT telemetry (temperature, humidity) – triggers threshold engine |
-| **BDT‑MBA Digital Twin State** | [`data/raw/bdt_mba_supplychain_dataset_2024.csv`](data/raw/bdt_mba_supplychain_dataset_2024.csv) | `slave-twin` | Asset metadata (condition score, maintenance logs) – syncs physical‑digital twin |
+| Dataset | Source | Target Contract | Purpose |
+|---------|--------|-----------------|---------|
+| **Smart Logistics Supply Chain** | [`data/raw/smart_logistics_dataset.csv`](data/raw/smart_logistics_dataset.csv) | `RecordHandover` | Macro‑movement tracking (origin/destination ports, current status) |
+| **Cold‑Chain Silent Failure** | [`data/raw/shipment-sensor-dataset.csv`](data/raw/shipment-sensor-dataset.csv) | `RecordTelemetry` | High‑frequency IoT telemetry (temperature, humidity) – triggers threshold engine |
+| **BDT‑MBA Digital Twin State** | [`data/raw/bdt_mba_supplychain_dataset_2024.csv`](data/raw/bdt_mba_supplychain_dataset_2024.csv) | `RecordTelemetry` | Asset metadata (condition score, maintenance logs) – syncs physical‑digital twin |
 
 ---
 
@@ -105,14 +109,14 @@ The success of this architecture is empirically evaluated using the following me
 
 ---
 
-## Current Status (as of 2026‑07‑06)
+## Current Status (as of 2026‑07‑12)
 
 | Milestone | Status | Notes |
 |-----------|--------|-------|
 | **M1: Infrastructure** | ✅ Complete | Network up, `mychannel` created, peers joined. Pivot documented. |
-| **M2: Data Ingestion** | 🛠️ In progress | Python client design drafted – implementation next. |
+| **M2: Data Ingestion** | ✅ Complete | Python script ingested 8,000 sensor records with 100% success through Go bridge. See [M2 as‑built](docu/m2-data-ingestion/notes/m2_as_built.md). |
 | **M3: Slave Chain** | ✅ Complete | `slave-twin` deployed and tested (invoke/query successful). |
-| **M4: Master Chain** | 📋 Planned | `master-logistics` to be developed. |
+| **M4: Master Chain** | 🛠️ In progress | Extending chaincode to handle logistics handovers. |
 | **M5: Evaluation** | ⏳ Pending | Stress tests, metrics collection, crash simulation. |
 | **M6: Defense Prep** | ⏳ Pending | Final report, slides, video walkthrough. |
 
@@ -126,9 +130,9 @@ All detailed notes, as‑built reports, and design documents are stored in the `
 
 - **[Global Notes](docu/_global-notes/)** – environment setup, tech stack justification.
 - **[M1 Infrastructure](docu/m1-infrastructure/notes/m1_as_built.md)** – full narrative of network provisioning, version mismatches, CouchDB issues, CA vs. cryptogen, custom channel failures, and the pivot decision.
+- **[M2 As‑Built](docu/m2-data-ingestion/notes/m2_as_built.md)** – ingestion engine implementation, performance results (8k records, 65 TPS).
 - **[M3 Slave Chain](docu/m3-slave-chain/notes/m3_as_built.md)** – development and deployment of the `slave-twin` chaincode, including the successful invoke/query test.
 - **[Architectural Pivot Rationale](docu/m3-slave-chain/notes/architecture_pivot_rationale.md)** – detailed justification of the single‑channel, logical‑segregation approach.
-- **[M2 Design](docu/m2-data-ingestion/notes/m2_design.md)** – ingestion engine design and dataset mapping.
 
 ---
 
@@ -146,8 +150,15 @@ All detailed notes, as‑built reports, and design documents are stored in the `
    ```bash
    ./network.sh deployCC -ccn slave-twin -ccp ../chaincode/slave-twin/go -ccl go -c mychannel -ccv 1.0 -ccs 1
    ```
-6. Test with sample invoke/query (commands are in the M3 notes).
-7. (To be added) Run the Python ingestion engine from `docu/m2-data-ingestion/code/`.
+6. Start the Go API bridge (from `gateway-api/`):
+   ```bash
+   go run main.go
+   ```
+7. Run the Python ingestion script (from `docu/m2-data-ingestion/code/ingest_sensors.py`):
+   ```bash
+   python ingest_sensors.py
+   ```
+8. Query the chaincode to verify twins (commands in M3 notes).
 
 ---
 
