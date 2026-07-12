@@ -116,8 +116,8 @@ The success of this architecture is empirically evaluated using the following me
 | **M1: Infrastructure** | ✅ Complete | Network up, `mychannel` created, peers joined. Pivot documented. |
 | **M2: Data Ingestion** | ✅ Complete | Python script ingested 8,000 sensor records with 100% success through Go bridge. See [M2 as‑built](docu/m2-data-ingestion/notes/m2_as_built.md). |
 | **M3: Slave Chain** | ✅ Complete | `slave-twin` deployed and tested (invoke/query successful). |
-| **M4: Master Chain** | 🛠️ In progress | Extending chaincode to handle logistics handovers. |
-| **M5: Evaluation** | ⏳ Pending | Stress tests, metrics collection, crash simulation. |
+| **M4: Master Chain** | ✅ Complete | Extended `slave-twin` with `RecordHandover` and `ReadHandover` – tested with `shipment-001`. See [M4 as‑built](docu/m4-master-chain/notes/m4_as_built.md). |
+| **M5: Evaluation** | ⏳ Next | Stress tests, metrics collection, crash simulation. |
 | **M6: Defense Prep** | ⏳ Pending | Final report, slides, video walkthrough. |
 
 See the [milestones.md](milestones.md) file for the complete task breakdown.
@@ -133,6 +133,7 @@ All detailed notes, as‑built reports, and design documents are stored in the `
 - **[M2 As‑Built](docu/m2-data-ingestion/notes/m2_as_built.md)** – ingestion engine implementation, performance results (8k records, 65 TPS).
 - **[M3 Slave Chain](docu/m3-slave-chain/notes/m3_as_built.md)** – development and deployment of the `slave-twin` chaincode, including the successful invoke/query test.
 - **[Architectural Pivot Rationale](docu/m3-slave-chain/notes/architecture_pivot_rationale.md)** – detailed justification of the single‑channel, logical‑segregation approach.
+- **[M4 Master Chain](docu/m4-master-chain/notes/m4_as_built.md)** – development and deployment of logistics handover functions, including path correction, version increments, and successful verification.
 
 ---
 
