@@ -33,6 +33,23 @@ type LogisticsPayload struct {
 	Timestamp   string `json:"timestamp"`
 }
 
+// MetadataPayload matches JSON from the metadata ingestion script
+type MetadataPayload struct {
+	AssetID                    string  `json:"asset_id"`
+	Location                   string  `json:"location"`
+	Temperature                float64 `json:"temperature"`
+	Vibration                  float64 `json:"vibration"`
+	LastMaintenance            string  `json:"last_maintenance"`
+	ConditionScore             float64 `json:"condition_score"`
+	ResourceUtilization        float64 `json:"resource_utilization"`
+	DeliveryEfficiency         float64 `json:"delivery_efficiency"`
+	DowntimeHours              float64 `json:"downtime_hours"`
+	InventoryLevel             string  `json:"inventory_level"`
+	LogisticsCost              float64 `json:"logistics_cost"`
+	Timestamp                  string  `json:"timestamp"`
+	SupplyChainEfficiencyLabel int     `json:"supply_chain_efficiency_label"`
+}
+
 var (
 	channelName   = "mychannel"
 	chaincodeName = "slave-twin"
@@ -211,9 +228,64 @@ func handleLogistics(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(`{"status":"committed"}`))
 }
 
+func handleMetadata(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Only POST allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Failed to read body", http.StatusBadRequest)
+		return
+	}
+	var payload MetadataPayload
+	if err := json.Unmarshal(body, &payload); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	gw, conn, err := newGateway()
+	if err != nil {
+		log.Printf("Gateway error: %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer gw.Close()
+	defer conn.Close()
+
+	network := gw.GetNetwork(channelName)
+	contract := network.GetContract(chaincodeName)
+
+	_, err = contract.SubmitTransaction(
+		"RecordMetadata",
+		payload.AssetID,
+		payload.Location,
+		fmt.Sprintf("%f", payload.Temperature),
+		fmt.Sprintf("%f", payload.Vibration),
+		payload.LastMaintenance,
+		fmt.Sprintf("%f", payload.ConditionScore),
+		fmt.Sprintf("%f", payload.ResourceUtilization),
+		fmt.Sprintf("%f", payload.DeliveryEfficiency),
+		fmt.Sprintf("%f", payload.DowntimeHours),
+		payload.InventoryLevel,
+		fmt.Sprintf("%f", payload.LogisticsCost),
+		payload.Timestamp,
+		fmt.Sprintf("%d", payload.SupplyChainEfficiencyLabel),
+	)
+	if err != nil {
+		log.Printf("Submit failed: %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"status":"committed"}`))
+}
+
 func main() {
 	http.HandleFunc("/api/sensor", handleSensor)
 	http.HandleFunc("/api/logistics", handleLogistics)
+	http.HandleFunc("/api/metadata", handleMetadata)
 	log.Println("Gateway API listening on :8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }

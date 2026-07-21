@@ -111,6 +111,70 @@ func (s *SmartContract) ReadHandover(ctx contractapi.TransactionContextInterface
 	return &record, nil
 }
 
+// AssetMetadata defines the schema for asset metadata
+type AssetMetadata struct {
+	AssetID                    string  `json:"asset_id"`
+	Location                   string  `json:"location"`
+	Temperature                float64 `json:"temperature"`
+	Vibration                  float64 `json:"vibration"`
+	LastMaintenance            string  `json:"last_maintenance"`
+	ConditionScore             float64 `json:"condition_score"`
+	ResourceUtilization        float64 `json:"resource_utilization"`
+	DeliveryEfficiency         float64 `json:"delivery_efficiency"`
+	DowntimeHours              float64 `json:"downtime_hours"`
+	InventoryLevel             string  `json:"inventory_level"`
+	LogisticsCost              float64 `json:"logistics_cost"`
+	Timestamp                  string  `json:"timestamp"`
+	SupplyChainEfficiencyLabel int     `json:"supply_chain_efficiency_label"`
+}
+
+// RecordMetadata stores asset metadata
+func (s *SmartContract) RecordMetadata(ctx contractapi.TransactionContextInterface, assetID string, location string, temperature string, vibration string, lastMaintenance string, conditionScore string, resourceUtilization string, deliveryEfficiency string, downtimeHours string, inventoryLevel string, logisticsCost string, timestamp string, efficiencyLabel string) error {
+	meta := AssetMetadata{
+		AssetID:         assetID,
+		Location:        location,
+		LastMaintenance: lastMaintenance,
+		InventoryLevel:  inventoryLevel,
+		Timestamp:       timestamp,
+	}
+	// Note: We take strings from the API bridge and store them directly, or you can cast them to floats here if you prefer strict types inside the struct, but this matches the string-based arguments sent from your Go API SubmitTransaction.
+	// To keep it simple and match your API bridge exactly, let's just let it save the raw JSON bytes.
+	// For a production system, you'd parse those string numbers back to floats here.
+
+	// I am updating this function signature to expect strings since your Gateway API formats them as strings (`fmt.Sprintf("%f", payload.Temperature)`) before submitting.
+	fmt.Sscanf(temperature, "%f", &meta.Temperature)
+	fmt.Sscanf(vibration, "%f", &meta.Vibration)
+	fmt.Sscanf(conditionScore, "%f", &meta.ConditionScore)
+	fmt.Sscanf(resourceUtilization, "%f", &meta.ResourceUtilization)
+	fmt.Sscanf(deliveryEfficiency, "%f", &meta.DeliveryEfficiency)
+	fmt.Sscanf(downtimeHours, "%f", &meta.DowntimeHours)
+	fmt.Sscanf(logisticsCost, "%f", &meta.LogisticsCost)
+	fmt.Sscanf(efficiencyLabel, "%d", &meta.SupplyChainEfficiencyLabel)
+
+	metaJSON, err := json.Marshal(meta)
+	if err != nil {
+		return err
+	}
+	return ctx.GetStub().PutState("meta_"+assetID, metaJSON)
+}
+
+// ReadMetadata retrieves asset metadata by asset ID
+func (s *SmartContract) ReadMetadata(ctx contractapi.TransactionContextInterface, assetID string) (*AssetMetadata, error) {
+	metaJSON, err := ctx.GetStub().GetState("meta_" + assetID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read from world state: %v", err)
+	}
+	if metaJSON == nil {
+		return nil, fmt.Errorf("metadata for asset %s does not exist", assetID)
+	}
+	var meta AssetMetadata
+	err = json.Unmarshal(metaJSON, &meta)
+	if err != nil {
+		return nil, err
+	}
+	return &meta, nil
+}
+
 func main() {
 	chaincode, err := contractapi.NewChaincode(&SmartContract{})
 	if err != nil {
