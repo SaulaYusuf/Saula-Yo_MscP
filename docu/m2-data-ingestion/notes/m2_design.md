@@ -1,6 +1,6 @@
 # M2: Data Ingestion Engine – Design & Implementation Plan
 
-**Date:** 2026‑07‑06  
+**Date:** 2026‑07‑06 (Last updated: 2026‑07‑21)  
 **Student:** Saula Yusuf Owolabi  
 **Milestone:** M2 – Python Asynchronous Client Pipeline
 
@@ -11,75 +11,76 @@
 Build an asynchronous Python client that:
 - Reads the three Kaggle CSV datasets (Smart Logistics, Cold‑Chain Sensor, BDT‑MBA Digital Twin State).
 - Transforms each row into a JSON transaction proposal.
-- Streams the proposals into the Hyperledger Fabric network via the Fabric Gateway SDK.
-- Routes sensor telemetry to the `slave-twin` chaincode.
-- Routes logistics milestones to the `master-logistics` chaincode (once developed).
+- Streams the proposals to the **Go API Bridge**, which submits them to the Fabric network via the official Gateway SDK.
+- Routes sensor telemetry to `slave-twin.RecordTelemetry`.
+- Routes logistics milestones to `slave-twin.RecordHandover`.
+- Routes asset metadata to `slave-twin.RecordMetadata`.
+
+This design avoids the unmaintained Python Fabric SDK and uses a production‑grade two‑tier microservice architecture.
 
 ---
 
 ## 2. Dataset Mapping
 
-| Dataset | Source | Target Chaincode | Key Fields |
-|---------|--------|------------------|------------|
-| Smart Logistics Supply Chain | `smart_logistics_dataset.csv` | `master-logistics` (to be created) | Shipment_ID, Origin_Port, Destination_Port, Current_Status, Timestamp |
-| Cold‑Chain Silent Failure | `shipment-sensor-dataset.csv` | `slave-twin` (already deployed) | Sensor_ID, Temp_Max_C, Humidity_Pct, Timestamp |
-| BDT‑MBA Supply Chain | `bdt_mba_supplychain_dataset_2024.csv` | `slave-twin` (twin metadata) | Asset_ID, Condition_Score, Maintenance_Logs, Operational_Lifecycle |
-
-The third dataset will be used to initialise or update twin metadata.
+| Dataset | Source | Target Chaincode Function | Key Fields |
+|---------|--------|---------------------------|------------|
+| Smart Logistics Supply Chain | `smart_logistics_dataset.csv` | `RecordHandover` | `Asset_ID`, `Shipment_Status`, `Timestamp`, `Latitude`, `Longitude` |
+| Cold‑Chain Silent Failure | `shipment-sensor-dataset.csv` | `RecordTelemetry` | `sensor_id`, `temp_max_c`, `temp_min_c`, `rh_mean`, `timestamp` |
+| BDT‑MBA Supply Chain | `bdt_mba_supplychain_dataset_2024.csv` | `RecordMetadata` | `Asset_ID`, `Location`, `Temperature`, `Condition_Score`, `SupplyChain_Efficiency_Label`, etc. |
 
 ---
 
-## 3. Technical Design
+## 3. Technical Architecture (Two‑Tier)
 
-- **Language:** Python 3.8+
-- **SDK:** `fabric-sdk-py` (v2.2 or later)
-- **Asynchronous:** `asyncio` for high‑throughput streaming.
-- **CSV parsing:** `pandas` or `csv` module – I’ll use `csv` for memory efficiency.
-- **Transaction proposal:** Each row → JSON object → `invoke` call to the respective chaincode function.
+### 3.1 Python Client (Edge Layer)
 
-**Routing Logic:**
-- If row contains `Sensor_ID` → route to `slave-twin.RecordTelemetry`.
-- If row contains `Shipment_ID` → route to `master-logistics.RecordHandover` (to be implemented).
+- **Language:** Python 3.12+
+- **Libraries:** `aiohttp` (async HTTP), `csv` (parsing), `asyncio`
+- **Concurrency:** Configurable worker pool (default 10) for parallel POST requests.
+- **Endpoints:**
+  - `POST /api/sensor` → sensor data
+  - `POST /api/logistics` → logistics data
+  - `POST /api/metadata` → asset metadata
+- **Payload:** JSON object matching the chaincode function arguments.
 
-**Concurrency:** I will create a fixed‑size worker pool (e.g., 10 async tasks) to submit transactions concurrently, simulating high‑frequency IoT.
+The script reads the CSV, queues rows, and workers send HTTP requests to the Go bridge. It logs successes, failures, and timing.
 
----
+### 3.2 Go API Bridge (Gateway Layer)
 
-## 4. Challenges Anticipated
+- **Framework:** Go with official `fabric-gateway` SDK v1.11.0
+- **Identity:** Org1 Admin (cryptogen‑generated, TLS enabled)
+- **TLS:** Uses the peer’s TLS CA certificate (`peer0.org1.example.com/tls/ca.crt`) for secure gRPC.
+- **Endpoints:** Exposes `/api/sensor`, `/api/logistics`, `/api/metadata`; each invokes the corresponding chaincode function.
+- **Error Handling:** Returns HTTP 500 on chaincode failure; 200 on success.
 
-- **Rate limiting:** Fabric’s orderer may throttle if TPS exceeds its capacity. I will implement back‑pressure with a queue.
-- **Error handling:** Network disconnections, endorsement failures – must retry with exponential backoff.
-- **Performance logging:** I will capture submit‑time and commit‑time for each transaction to compute latency.
-
----
-
-## 5. Implementation Steps
-
-1. Set up Python virtual environment with `fabric-sdk-py`, `asyncio`, `pandas`.
-2. Write a connection profile (YAML) to connect to the Fabric network.
-3. Implement a `CSVStreamer` class that yields rows asynchronously.
-4. Write two client methods: `submit_sensor_data(row)` and `submit_logistics(row)`.
-5. Test with a small subset of the datasets.
-6. Run a full‑scale ingestion and monitor Docker stats.
+This bridge is stateless and can be scaled horizontally if needed.
 
 ---
 
-## 6. Current Status
+## 4. Implementation Steps (Completed)
 
-- **In progress** – design phase.
-- The `slave-twin` chaincode is ready.
-- The `master-logistics` chaincode is yet to be developed (M4).
-
-**Next:** Build the client and test with sensor data first.
-```
+1. ✅ Set up Python virtual environment with `aiohttp` and `csv`.
+2. ✅ Write `ingest_sensors.py` for the sensor dataset.
+3. ✅ Write `ingest_logistics.py` for the logistics dataset.
+4. ✅ Write `ingest_metadata.py` for the metadata dataset.
+5. ✅ Extend Go bridge to support all three endpoints.
+6. ✅ Test each ingestion script with 100% success.
+7. ✅ Generate ingestion comparison chart.
 
 ---
 
-### 4. Update the Pivot Rationale
+## 5. Challenges & Resolutions
 
-Make sure `architecture_pivot_rationale.md` includes the **successful chaincode test** as proof that the new approach works. I’ll add a section:
+- **SDK Unavailability:** Fabric’s Python SDK is deprecated; adopted the two‑tier microservice pattern.
+- **API Version Mismatch:** The Go SDK’s `client.Connect` changed; we used `WithClientConnection` with gRPC connections.
+- **TLS Cert Paths:** Initially used wrong CA files; corrected to peer-specific TLS CA certificates.
+- **Chaincode Deployment:** Multiple attempts due to packaging path and sequence mismatches; eventually deployed version 2.7 with all functions.
 
-```markdown
-## 8. Verification of the Pivot
+---
 
-On 2026‑07‑06, I deployed the `slave-twin` chaincode on `mychannel` and successfully invoked `RecordTelemetry` and queried the twin. The threshold engine performed as expected. This confirms that the logical segregation approach is fully functional and ready for performance evaluation.
+## 6. Performance Targets for M5
+
+- **Maximum TPS:** Determine saturation point by varying concurrency (10, 50, 100, 200 workers).
+- **Latency Percentiles:** Measure p50, p95, p99 commit latency.
+- **Resource Usage:** CPU and memory consumption under load.
+- **Crash Recovery:** Time for Raft leader re‑election after orderer failure.

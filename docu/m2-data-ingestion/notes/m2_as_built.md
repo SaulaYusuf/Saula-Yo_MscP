@@ -38,18 +38,32 @@ The script reads the CSV row‑by‑row, places each row into an async queue, an
 
 The bridge creates a gRPC connection to the peer, submits the transaction, and returns `{"status":"committed"}` on success.
 
+### 2.3 Implemented Scripts
+
+| Script | Dataset | Records | Endpoint | Chaincode Function |
+|--------|---------|---------|----------|---------------------|
+| `ingest_sensors.py` | `shipment-sensor-dataset.csv` | 8,000 | `/api/sensor` | `RecordTelemetry` |
+| `ingest_logistics.py` | `smart_logistics_dataset.csv` | 1,000 | `/api/logistics` | `RecordHandover` |
+| `ingest_metadata.py` | `bdt_mba_supplychain_dataset_2024.csv` | 500 | `/api/metadata` | `RecordMetadata` |
+
+---
 ---
 
 ## 3. Performance Results
 
-| Metric | Value |
-|--------|-------|
-| Total records | 8,000 |
-| Successful commits | 8,000 |
-| Failed commits | 0 |
-| Total time | 123.8 seconds |
-| Throughput (TPS) | ~65 TPS |
-| Average per‑record latency | ~15.5 ms (excluding network overhead) |
+| Dataset | Records | Time (s) | Throughput (TPS) |
+|---------|---------|----------|------------------|
+| Sensor (IoT) | 8,000 | 123.8 | 64.6 |
+| Logistics | 1,000 | 8.7 | 114.9 |
+| Metadata | 500 | 4.7 | 106.2 |
+
+> **Note:** TPS varies due to different payload sizes and chaincode complexity. The sensor dataset includes threshold evaluation, which adds computational overhead.
+
+### Ingestion Comparison Chart
+
+![Ingestion Comparison](docu/m2-data-ingestion/code/ingestion_comparison.png)
+
+The chart shows that the sensor dataset is the largest and has the lowest TPS, while logistics and metadata have higher throughput due to simpler transactions.
 
 > **Note:** The TPS is limited by the Go bridge’s single‑threaded processing and the Fabric orderer’s block configuration. Future stress tests (M5) will measure the absolute maximum throughput.
 
@@ -57,16 +71,15 @@ The bridge creates a gRPC connection to the peer, submits the transaction, and r
 
 ## 4. Verification
 
-After ingestion, a query confirmed that the twin for `sensor-001` was stored correctly:
+After each ingestion, queries confirmed that data was stored correctly. Example:
 
 ```bash
+# Sensor twin
 peer chaincode query -C mychannel -n slave-twin -c '{"function":"ReadTwin","Args":["sensor-001"]}'
-```
-
-Output:
-
-```json
-{"sensor_id":"sensor-001","temp_c":7.5,"humidity":45,"status":"NORMAL","timestamp":"2026-07-06T12:00:00Z"}
+# Logistics handover
+peer chaincode query -C mychannel -n slave-twin -c '{"function":"ReadHandover","Args":["Truck_7"]}'
+# Metadata
+peer chaincode query -C mychannel -n slave-twin -c '{"function":"ReadMetadata","Args":["A0001"]}'
 ```
 
 ---
@@ -81,13 +94,6 @@ Output:
 
 ## 6. Next Steps
 
-- **M4:** Develop the `master-logistics` chaincode to handle the logistics dataset (ownership handovers, port arrivals).
 - **M5:** Run stress tests, measure TPS, latency, resource usage, and simulate Raft crash recovery.
 
 ---
-
-## 7. Files
-
-- Python script: `docu/m2-data-ingestion/code/ingest_sensors.py`
-- Go bridge: `gateway-api/main.go`
-- Dataset: `data/raw/shipment-sensor-dataset.csv`
