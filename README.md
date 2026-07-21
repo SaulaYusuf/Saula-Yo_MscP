@@ -6,7 +6,7 @@
 
 **Student:** Saula Yusuf Owolabi  
 **Institution:** Ulster University  
-**Date:** July 2026 (Last Updated: 2026‑07‑12)
+**Date:** July 2026 (Last Updated: 2026‑07‑21)
 
 ---
 
@@ -15,27 +15,29 @@
 ```
 .
 ├── chaincode/                 # Smart contract source code (Go)
-│   └── slave-twin/            # IoT/Digital Twin chaincode (extended for logistics)
-│       ├── main.go            # Threshold engine + logistics handovers
+│   └── slave-twin/            # Unified chaincode (IoT + Logistics + Metadata)
+│       ├── main.go            # RecordTelemetry, RecordHandover, RecordMetadata
 │       ├── go.mod
 │       └── go.sum
 ├── data/
 │   └── raw/                   # Kaggle datasets
-│       ├── bdt_mba_supplychain_dataset_2024.csv
-│       ├── shipment-sensor-dataset.csv
-│       └── smart_logistics_dataset.csv
+│       ├── bdt_mba_supplychain_dataset_2024.csv   (500 records)
+│       ├── shipment-sensor-dataset.csv            (8,000 records)
+│       └── smart_logistics_dataset.csv            (1,000 records)
 ├── docu/                      # Full project documentation (milestone notes, results)
 │   ├── _global-notes/         # Environment setup, tech stack justification
 │   ├── m1-infrastructure/     # Network provisioning & pivot rationale
-│   ├── m2-data-ingestion/     # Python ingestion engine (as‑built)
+│   ├── m2-data-ingestion/     # Python ingestion engine (as‑built, charts)
 │   ├── m3-slave-chain/        # Slave chaincode development & deployment
-│   ├── m4-master-chain/       # Master logistics chaincode (in progress)
-│   ├── m5-evaluation/         # Performance metrics & stress tests (planned)
+│   ├── m4-master-chain/       # Master logistics chaincode (as‑built)
+│   ├── m5-evaluation/         # Performance metrics, benchmark results, graphs
 │   └── m6-defense-prep/       # Final report, slides, video walkthrough (planned)
-├── gateway-api/               # Go REST API bridge (HTTP -> Fabric)
-│   └── main.go                # Connects to Fabric, exposes /api/sensor and /api/logistics
+├── gateway-api/               # Go REST API bridge (HTTP → Fabric)
+│   └── main.go                # /api/sensor, /api/logistics, /api/metadata
 ├── README.md                  # This file
-└── milestones.md              # Detailed milestone map
+├── milestones.md              # Detailed milestone map
+├── benchmark_plots.png        # Throughput & latency visualisation (M5)
+└── benchmark_results.json     # Raw performance data (M5)
 ```
 
 ---
@@ -52,9 +54,10 @@
 - **State Database:** levelDB
 - **Consensus:** Raft (5 orderer nodes)
 - **Single Channel:** `mychannel`
-- **Two Chaincode Contracts (in one package):**
+- **Unified Chaincode (`slave-twin`) containing three contracts:**
   - **Slave (IoT) Contract:** `RecordTelemetry` – ingests environmental sensor telemetry, evaluates temperature thresholds, updates Digital Twin status (`NORMAL` / `SPOILED`).
-  - **Master (Logistics) Contract:** `RecordHandover` – handles ownership handovers, port arrivals, and cryptographic anchoring of final milestones (to be deployed).
+  - **Master (Logistics) Contract:** `RecordHandover` – handles ownership handovers, port arrivals, and cryptographic anchoring of final milestones.
+  - **Metadata Contract:** `RecordMetadata` – stores asset condition, maintenance logs, and efficiency labels.
 
 ### Data Ingestion Pipeline (Two‑Tier)
 
@@ -71,7 +74,7 @@ This pattern avoids the unmaintained Python Fabric SDK and is industry‑standar
 |---------|--------|-----------------|---------|
 | **Smart Logistics Supply Chain** | [`data/raw/smart_logistics_dataset.csv`](data/raw/smart_logistics_dataset.csv) | `RecordHandover` | Macro‑movement tracking (origin/destination ports, current status) |
 | **Cold‑Chain Silent Failure** | [`data/raw/shipment-sensor-dataset.csv`](data/raw/shipment-sensor-dataset.csv) | `RecordTelemetry` | High‑frequency IoT telemetry (temperature, humidity) – triggers threshold engine |
-| **BDT‑MBA Digital Twin State** | [`data/raw/bdt_mba_supplychain_dataset_2024.csv`](data/raw/bdt_mba_supplychain_dataset_2024.csv) | `RecordTelemetry` | Asset metadata (condition score, maintenance logs) – syncs physical‑digital twin |
+| **BDT‑MBA Digital Twin State** | [`data/raw/bdt_mba_supplychain_dataset_2024.csv`](data/raw/bdt_mba_supplychain_dataset_2024.csv) | `RecordMetadata` | Asset metadata (condition score, maintenance logs, efficiency label) |
 
 ---
 
@@ -109,15 +112,35 @@ The success of this architecture is empirically evaluated using the following me
 
 ---
 
-## Current Status (as of 2026‑07‑12)
+## Key Performance Results (M5)
+
+The system was benchmarked with 8,000 sensor records at varying concurrency levels. The key findings are:
+
+| Concurrency | TPS (peak) | p95 Latency | Success Rate |
+|-------------|------------|-------------|--------------|
+| 10          | 121        | 100 ms      | 100%         |
+| 50          | **159**    | 414 ms      | 100%         |
+| 100         | 154        | 780 ms      | 100%         |
+| 200         | 144        | 904 ms      | 93.75%       |
+
+**Raft Crash Recovery:** 5.264 seconds (leader re‑election after container termination).
+
+**Graphical Summary:** See [`benchmark_plots.png`](benchmark_plots.png) for throughput and latency visualisations.
+![`benchmark_plots.png`](benchmark_plots.png)
+
+These results validate that the architecture sustains **~150 TPS** with sub‑second latency for critical logistics milestones, and recovers automatically from node failures.
+
+---
+
+## Current Status (as of 2026‑07‑21)
 
 | Milestone | Status | Notes |
 |-----------|--------|-------|
 | **M1: Infrastructure** | ✅ Complete | Network up, `mychannel` created, peers joined. Pivot documented. |
-| **M2: Data Ingestion** | ✅ Complete | Python script ingested 8,000 sensor records with 100% success through Go bridge. See [M2 as‑built](docu/m2-data-ingestion/notes/m2_as_built.md). |
-| **M3: Slave Chain** | ✅ Complete | `slave-twin` deployed and tested (invoke/query successful). |
-| **M4: Master Chain** | ✅ Complete | Extended `slave-twin` with `RecordHandover` and `ReadHandover` – tested with `shipment-001`. See [M4 as‑built](docu/m4-master-chain/notes/m4_as_built.md). |
-| **M5: Evaluation** | ⏳ Next | Stress tests, metrics collection, crash simulation. |
+| **M2: Data Ingestion** | ✅ Complete | All three datasets ingested (8,000 + 1,000 + 500 records) with 100% success. See [M2 as‑built](docu/m2-data-ingestion/notes/m2_as_built.md). |
+| **M3: Slave Chain** | ✅ Complete | `RecordTelemetry` and `ReadTwin` deployed and tested. |
+| **M4: Master Chain** | ✅ Complete | `RecordHandover`, `ReadHandover`, `RecordMetadata`, `ReadMetadata` deployed and tested. See [M4 as‑built](docu/m4-master-chain/notes/m4_as_built.md). |
+| **M5: Evaluation** | ✅ Complete | Benchmarking, latency analysis, resource monitoring, and crash fault tolerance tested. See [M5 as‑built](docu/m5-evaluation/notes/m5_as_built.md). |
 | **M6: Defense Prep** | ⏳ Pending | Final report, slides, video walkthrough. |
 
 See the [milestones.md](milestones.md) file for the complete task breakdown.
@@ -130,39 +153,83 @@ All detailed notes, as‑built reports, and design documents are stored in the `
 
 - **[Global Notes](docu/_global-notes/)** – environment setup, tech stack justification.
 - **[M1 Infrastructure](docu/m1-infrastructure/notes/m1_as_built.md)** – full narrative of network provisioning, version mismatches, CouchDB issues, CA vs. cryptogen, custom channel failures, and the pivot decision.
-- **[M2 As‑Built](docu/m2-data-ingestion/notes/m2_as_built.md)** – ingestion engine implementation, performance results (8k records, 65 TPS).
+- **[M2 As‑Built](docu/m2-data-ingestion/notes/m2_as_built.md)** – ingestion engine implementation, performance results (all three datasets), and comparison chart.
 - **[M3 Slave Chain](docu/m3-slave-chain/notes/m3_as_built.md)** – development and deployment of the `slave-twin` chaincode, including the successful invoke/query test.
 - **[Architectural Pivot Rationale](docu/m3-slave-chain/notes/architecture_pivot_rationale.md)** – detailed justification of the single‑channel, logical‑segregation approach.
 - **[M4 Master Chain](docu/m4-master-chain/notes/m4_as_built.md)** – development and deployment of logistics handover functions, including path correction, version increments, and successful verification.
+- **[M5 As‑Built](docu/m5-evaluation/notes/m5_as_built.md)** – comprehensive performance evaluation: throughput, latency, resource utilisation, and crash recovery.
 
 ---
 
 ## How to Run This Project (for replication)
 
-1. Clone this repository.
-2. Ensure Docker, Docker Compose, and Go are installed (see [environment setup](docu/_global-notes/environment_setup_guide.md)).
-3. Navigate to `fabric-samples/test-network/` (you may need to download Fabric samples separately – see the global notes).
-4. Bring up the network:
-   ```bash
-   ./network.sh up
-   ./network.sh createChannel -c mychannel
-   ```
-5. Deploy the `slave-twin` chaincode:
-   ```bash
-   ./network.sh deployCC -ccn slave-twin -ccp ../chaincode/slave-twin/go -ccl go -c mychannel -ccv 1.0 -ccs 1
-   ```
-6. Start the Go API bridge (from `gateway-api/`):
-   ```bash
-   go run main.go
-   ```
-7. Run the Python ingestion script (from `docu/m2-data-ingestion/code/ingest_sensors.py`):
-   ```bash
-   python ingest_sensors.py
-   ```
-8. Query the chaincode to verify twins (commands in M3 notes).
+### Prerequisites
+
+- Docker & Docker Compose
+- Go (1.20+)
+- Python 3.12+ with `pip`
+- Hyperledger Fabric binaries (download `fabric-samples`)
+
+### Step 1: Network Setup
+
+```bash
+cd fabric-samples/test-network
+./network.sh up
+./network.sh createChannel -c mychannel
+```
+
+### Step 2: Deploy Chaincode
+
+```bash
+./network.sh deployCC -ccn slave-twin -ccp ../chaincode/slave-twin/go -ccl go -c mychannel -ccv 2.7 -ccs 4
+```
+
+### Step 3: Start the Go API Bridge
+
+```bash
+cd gateway-api
+go run main.go
+```
+
+### Step 4: Run Ingestion (All Datasets)
+
+```bash
+# Sensor (8,000 records)
+python docu/m2-data-ingestion/code/ingest_sensors.py
+
+# Logistics (1,000 records)
+python docu/m2-data-ingestion/code/ingest_logistics.py
+
+# Metadata (500 records)
+python docu/m2-data-ingestion/code/ingest_metadata.py
+```
+
+### Step 5: Run Benchmarks (M5)
+
+```bash
+cd docu/m5-evaluation/code
+python benchmark_runner.py
+python plot_benchmark.py
+bash crash_test.sh
+```
+
+### Step 6: Query Chaincode
+
+```bash
+# Set environment variables (see M3 notes)
+peer chaincode query -C mychannel -n slave-twin -c '{"function":"ReadTwin","Args":["sensor-001"]}'
+peer chaincode query -C mychannel -n slave-twin -c '{"function":"ReadHandover","Args":["shipment-001"]}'
+peer chaincode query -C mychannel -n slave-twin -c '{"function":"ReadMetadata","Args":["A0001"]}'
+```
 
 ---
 
 ## License & Acknowledgements
 
 This project is part of a Master’s research dissertation. Datasets are sourced from Kaggle and are publicly available.
+
+The Hyperledger Fabric network is built on the official `fabric-samples` test network, adapted for multi‑contract deployment.
+
+---
+
+**Last Updated:** 2026‑07‑21
