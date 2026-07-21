@@ -61,7 +61,7 @@ The bridge creates a gRPC connection to the peer, submits the transaction, and r
 
 ### Ingestion Comparison Chart
 
-![Ingestion Comparison](docu/m2-data-ingestion/code/ingestion_comparison.png)
+![Ingestion Comparison](ingestion_comparison.copy.png)
 
 The chart shows that the sensor dataset is the largest and has the lowest TPS, while logistics and metadata have higher throughput due to simpler transactions.
 
