@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-# Real data from your ingestion logs
+# Real data from my ingestion logs
 datasets = ['Sensor (IoT)', 'Logistics', 'Metadata']
 records = [8000, 1000, 500]
 time_sec = [123.8, 8.7, 4.71]

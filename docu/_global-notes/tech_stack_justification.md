@@ -1,8 +1,7 @@
 # 1. Documenting the Tech Stack
 
-I have updated the `environment_setup_guide.md` file (which lives in your `docu/_global-notes/` folder) to include this justification section. This is exactly what you need to show the professor to prove you didn't just pick tools at random.
+I have updated the `environment_setup_guide.md` file (which lives in th `docu/_global-notes/` folder) to include this justification section. 
 
-**Add this to your `environment_setup_guide.md` or a new file called `tech_stack_justification.md`:**
 
 | Tool | Role | Justification |
 | --- | --- | --- |

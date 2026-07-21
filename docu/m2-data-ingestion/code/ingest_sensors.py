@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 # Bridge endpoint
 SENSOR_URL = "http://localhost:8080/api/sensor"
 
-# Path to your dataset (adjust if needed)
+# Path to the dataset (adjust if needed)
 DATASET_PATH = Path(__file__).parents[3] / "data" / "raw" / "shipment-sensor-dataset.csv"
 
 # Concurrency limit (number of simultaneous POST requests)

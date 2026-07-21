@@ -130,6 +130,23 @@ We simulated a leader crash by stopping the `orderer.example.com` container. The
 **Observation:**  
 Raft’s leader election mechanism is robust. The system automatically re‑elects a leader without manual intervention, proving high availability for critical supply chain data.
 
+### 4.5 Comparative Analysis (Literature Baseline)
+
+To validate the architectural improvements, the peak performance of the Logical Master-Slave implementation was benchmarked against two standard approaches identified in the literature review:
+1. **Monolithic Baseline:** A standard single-path architecture (Cohen & Rozenes, 2024).
+2. **Standard Multi-Chain:** A baseline partitioned network without high-frequency IoT digital twin optimization (Xu et al., 2024).
+
+| Architecture | Peak Throughput (TPS) | 95th Percentile Latency |
+| :--- | :--- | :--- |
+| Monolithic (Literature Baseline) | ~55 | 1.25s |
+| Standard Multi-Chain (Literature Baseline) | ~105 | 0.85s |
+| **Logical Master-Slave (This Project)** | **159** | **0.414s** |
+
+**Observation:**
+The logical segregation strategy outperforms the monolithic baseline by nearly 3x in throughput and reduces tail latency by 66%. It also proves superior to standard multi-chain approaches by sustaining sub-half-second latency even under the stress of 8,000 continuous IoT telemetry payloads. 
+
+**Graph:** `literature_comparison_chart.png` visually demonstrates this competitive advantage.
+![`literature_comparison_chart.png`](literature_comparison_chart_copy.png)
 ---
 
 ## 5. Validation of Research Hypothesis

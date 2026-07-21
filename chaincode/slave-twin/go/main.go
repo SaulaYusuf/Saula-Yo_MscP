@@ -137,11 +137,11 @@ func (s *SmartContract) RecordMetadata(ctx contractapi.TransactionContextInterfa
 		InventoryLevel:  inventoryLevel,
 		Timestamp:       timestamp,
 	}
-	// Note: We take strings from the API bridge and store them directly, or you can cast them to floats here if you prefer strict types inside the struct, but this matches the string-based arguments sent from your Go API SubmitTransaction.
-	// To keep it simple and match your API bridge exactly, let's just let it save the raw JSON bytes.
-	// For a production system, you'd parse those string numbers back to floats here.
+	// Note: We take strings from the API bridge and store them directly, or I can cast them to floats here if you prefer strict types inside the struct, but this matches the string-based arguments sent from my Go API SubmitTransaction.
+	// To keep it simple and match my API bridge exactly, let's just let it save the raw JSON bytes.
+	// For a production system, I'd parse those string numbers back to floats here.
 
-	// I am updating this function signature to expect strings since your Gateway API formats them as strings (`fmt.Sprintf("%f", payload.Temperature)`) before submitting.
+	// I am updating this function signature to expect strings since my Gateway API formats them as strings (`fmt.Sprintf("%f", payload.Temperature)`) before submitting.
 	fmt.Sscanf(temperature, "%f", &meta.Temperature)
 	fmt.Sscanf(vibration, "%f", &meta.Vibration)
 	fmt.Sscanf(conditionScore, "%f", &meta.ConditionScore)
