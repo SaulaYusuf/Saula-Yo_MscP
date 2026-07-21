@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Ingestion engine for the Kaggle sensor dataset.
 Streams rows as JSON to the Go API bridge (http://localhost:8080/api/sensor).
