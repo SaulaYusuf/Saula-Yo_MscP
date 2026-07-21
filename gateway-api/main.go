@@ -16,11 +16,21 @@ import (
 	"google.golang.org/grpc/credentials"
 )
 
+// SensorPayload matches JSON from the sensor ingestion script
 type SensorPayload struct {
 	SensorID  string  `json:"sensor_id"`
 	TempC     float64 `json:"temp_c"`
 	Humidity  float64 `json:"humidity"`
 	Timestamp string  `json:"timestamp"`
+}
+
+// LogisticsPayload matches JSON from the logistics ingestion script
+type LogisticsPayload struct {
+	ShipmentID  string `json:"shipment_id"`
+	Origin      string `json:"origin"`
+	Destination string `json:"destination"`
+	Status      string `json:"status"`
+	Timestamp   string `json:"timestamp"`
 }
 
 var (
@@ -104,7 +114,7 @@ func newGateway() (*client.Gateway, *grpc.ClientConn, error) {
 		client.WithClientConnection(peerConn),
 	)
 	if err != nil {
-		peerConn.Close() // Clean up on error
+		peerConn.Close()
 		return nil, nil, fmt.Errorf("failed to create gateway: %w", err)
 	}
 	return gw, peerConn, nil
@@ -156,7 +166,49 @@ func handleSensor(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleLogistics(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, "not implemented yet", http.StatusNotImplemented)
+	if r.Method != http.MethodPost {
+		http.Error(w, "Only POST allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Failed to read body", http.StatusBadRequest)
+		return
+	}
+	var payload LogisticsPayload
+	if err := json.Unmarshal(body, &payload); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	gw, conn, err := newGateway()
+	if err != nil {
+		log.Printf("Gateway error: %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer gw.Close()
+	defer conn.Close()
+
+	network := gw.GetNetwork(channelName)
+	contract := network.GetContract(chaincodeName)
+
+	_, err = contract.SubmitTransaction(
+		"RecordHandover",
+		payload.ShipmentID,
+		payload.Origin,
+		payload.Destination,
+		payload.Status,
+		payload.Timestamp,
+	)
+	if err != nil {
+		log.Printf("Submit failed: %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"status":"committed"}`))
 }
 
 func main() {
